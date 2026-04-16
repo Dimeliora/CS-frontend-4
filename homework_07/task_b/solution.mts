@@ -52,7 +52,7 @@ export class StringsBufferImp {
         return value;
     }
 
-    buffer: Uint8Array;
+    private buffer: Uint8Array;
 
     private decoder: TextDecoder;
 
