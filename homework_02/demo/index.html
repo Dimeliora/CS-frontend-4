@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bytecode Interpreter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d0d14;
+            --surface-color: #14141e;
+            --panel-bg: #1a1a28;
+            --border-color: #2a2a3a;
+            --input-bg: #10101a;
+            --text-color: #e0e0e8;
+            --text-muted: #6a6a7a;
+            --accent-color: #7c6ff7;
+            --accent-hover: #6b5ce7;
+            --accent-secondary: #e06c75;
+            --success-color: #98c379;
+            --error-color: #e06c75;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(124, 111, 247, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(86, 182, 194, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(224, 108, 117, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px 48px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        .header h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7c6ff7, #56b6c2, #e5c07b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .header .badge {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 4px 12px;
+            background: rgba(124, 111, 247, 0.1);
+            border: 1px solid rgba(124, 111, 247, 0.2);
+            border-radius: 20px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-color);
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+        }
+
+        /* Все ячейки grid — растягиваются, min-width: 0 для предотвращения overflow */
+        .main-layout > * {
+            min-width: 0;
+            min-height: 0;
+        }
+
+        /* Нижняя строка — фиксированная высота, содержимое скроллится */
+        .main-layout > :nth-child(3),
+        .main-layout > :nth-child(4) {
+            max-height: 380px;
+            overflow: hidden;
+        }
+
+        .timeout-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 18px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .timeout-bar label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .timeout-bar input[type="number"] {
+            width: 70px;
+            padding: 4px 8px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            outline: none;
+        }
+
+        .timeout-bar input[type="number"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        .timeout-bar .unit {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .footer a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto auto;
+            }
+
+            .main-layout > :nth-child(3),
+            .main-layout > :nth-child(4) {
+                max-height: 320px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .app {
+                padding: 20px 16px 32px;
+            }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .timeout-bar { animation: fadeInUp 0.4s ease-out both; }
+        .main-layout > :nth-child(1) { animation: fadeInUp 0.4s ease-out 0.05s both; }
+        .main-layout > :nth-child(2) { animation: fadeInUp 0.4s ease-out 0.05s both; }
+        .main-layout > :nth-child(3) { animation: fadeInUp 0.4s ease-out 0.1s both; }
+        .main-layout > :nth-child(4) { animation: fadeInUp 0.4s ease-out 0.1s both; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <h1>Bytecode Interpreter</h1>
+            <p>Интерактивный интерпретатор байткода с трассировкой выполнения</p>
+            <span class="badge">Web Components + BytecodeExecutor</span>
+        </header>
+
+        <div class="timeout-bar">
+            <label>
+                ⏱ Лимит шагов:
+                <input type="number" id="max-steps" value="50000" min="100" max="1000000" step="1000">
+            </label>
+            <span style="margin-left: auto; font-size: 11px;">Защита от зацикливания</span>
+        </div>
+
+        <main class="main-layout" style="margin-top: 20px;">
+            <!-- Верхняя строка: редактор + трассировка (одинаковая высота) -->
+            <program-editor id="editor"></program-editor>
+            <execution-viewer id="viewer"></execution-viewer>
+
+            <!-- Нижняя строка: вывод + справка (одинаковая высота, скролл) -->
+            <output-display id="output"></output-display>
+            <opcode-help id="help"></opcode-help>
+        </main>
+
+        <footer class="footer">
+            BytecodeExecutor — скомпилировано из
+            <a href="./solution.mjs">solution.mjs</a>
+        </footer>
+    </div>
+
+    <script type="module">
+        import { BytecodeExecutor } from './solution.mjs';
+        import './components/program-editor.mjs';
+        import './components/output-display.mjs';
+        import './components/execution-viewer.mjs';
+        import './components/opcode-help.mjs';
+
+        const editor = document.getElementById('editor');
+        const output = document.getElementById('output');
+        const viewer = document.getElementById('viewer');
+        const maxStepsInput = document.getElementById('max-steps');
+
+        /**
+         * Выполнить программу целиком через оригинальный BytecodeExecutor.
+         * console.log перехватывается для захвата вывода PRINT A.
+         */
+        document.addEventListener('run-program', (e) => {
+            const { program } = e.detail;
+            output.clear();
+            viewer.reset();
+
+            output.appendInfo(`Запуск программы [${program.length} значений]...`);
+
+            const prints = [];
+            const originalLog = console.log;
+            console.log = (...args) => { prints.push(args.join(' ')); };
+
+            const maxSteps = Number(maxStepsInput.value) || 50000;
+            const executor = new BytecodeExecutor();
+
+            let stepCount = 0;
+            const proxySource = new Proxy(program, {
+                get(target, prop, receiver) {
+                    if (typeof prop === 'string' && !isNaN(Number(prop))) {
+                        stepCount++;
+                        if (stepCount > maxSteps) {
+                            throw new Error(`TIMEOUT: превышен лимит в ${maxSteps} шагов`);
+                        }
+                    }
+                    return Reflect.get(target, prop, receiver);
+                }
+            });
+
+            try {
+                const startTime = performance.now();
+                const returnCode = executor.execute(proxySource);
+                const elapsed = (performance.now() - startTime).toFixed(2);
+
+                console.log = originalLog;
+
+                for (const line of prints) {
+                    output.appendPrint(line);
+                }
+
+                output.appendSuccess(`Программа завершена за ${elapsed}мс (${stepCount} обращений к source)`);
+                output.showReturnCode(returnCode);
+
+            } catch (err) {
+                console.log = originalLog;
+
+                for (const line of prints) {
+                    output.appendPrint(line);
+                }
+
+                if (err.message?.startsWith('TIMEOUT')) {
+                    output.appendError(err.message);
+                    output.showReturnCode(-1);
+                } else {
+                    output.appendError(`Ошибка выполнения: ${err.message}`);
+                    output.showReturnCode(1);
+                }
+            }
+        });
+
+        /**
+         * Запуск пошаговой трассировки.
+         * Программа выполняется целиком через оригинальный BytecodeExecutor
+         * (обёрнутый в Proxy для сбора снимков), затем трассировка
+         * воспроизводится пошагово в execution-viewer.
+         */
+        document.addEventListener('step-program', (e) => {
+            const { program } = e.detail;
+            output.clear();
+            output.appendInfo(`Трассировка [${program.length} значений]...`);
+
+            const maxSteps = Number(maxStepsInput.value) || 50000;
+
+            const { returnCode, prints } = viewer.run(program, maxSteps, {
+                onPrint: (value) => {
+                    output.appendPrint(value);
+                },
+                onFinish: (code, errorMsg) => {
+                    if (errorMsg) {
+                        output.appendError(errorMsg);
+                    }
+                    output.appendSuccess(`Программа завершена с кодом ${code}`);
+                    output.showReturnCode(code);
+                }
+            });
+
+            output.appendInfo(`Трассировка собрана. Используйте «Шаг» или «Авто» для просмотра.`);
+        });
+
+        /**
+         * Сброс
+         */
+        document.addEventListener('reset-program', () => {
+            output.clear();
+            viewer.reset();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeShiftableArray — Визуализация</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d0d14;
+            --surface-color: #14141e;
+            --panel-bg: #1a1a28;
+            --border-color: #2a2a3a;
+            --input-bg: #10101a;
+            --text-color: #e0e0e8;
+            --text-muted: #6a6a7a;
+            --accent-color: #7c6ff7;
+            --accent-hover: #6b5ce7;
+            --accent-secondary: #e06c75;
+            --success-color: #98c379;
+            --error-color: #e06c75;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(124, 111, 247, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(86, 182, 194, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(224, 108, 117, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px 48px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        .header h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7c6ff7, #56b6c2, #e5c07b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .header .badge {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 4px 12px;
+            background: rgba(124, 111, 247, 0.1);
+            border: 1px solid rgba(124, 111, 247, 0.2);
+            border-radius: 20px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-color);
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .top-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .middle-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .bottom-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .footer a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .middle-row,
+            .bottom-row {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .app {
+                padding: 20px 16px 32px;
+            }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .top-row > * { animation: fadeInUp 0.4s ease-out both; }
+        .middle-row > :nth-child(1) { animation: fadeInUp 0.4s ease-out 0.05s both; }
+        .middle-row > :nth-child(2) { animation: fadeInUp 0.4s ease-out 0.1s both; }
+        .bottom-row > :nth-child(1) { animation: fadeInUp 0.4s ease-out 0.15s both; }
+        .bottom-row > :nth-child(2) { animation: fadeInUp 0.4s ease-out 0.2s both; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <h1>FreeShiftableArray</h1>
+            <p>Кольцевой буфер с O(1) shift/unshift — визуализация под капотом</p>
+            <span class="badge">Web Components + Animated Steps</span>
+        </header>
+
+        <main class="main-layout">
+            <section class="top-row">
+                <buffer-view id="buffer-view"></buffer-view>
+            </section>
+
+            <section class="middle-row">
+                <operation-panel id="op-panel"></operation-panel>
+                <operation-log id="op-log"></operation-log>
+            </section>
+
+            <section class="bottom-row">
+                <native-comparison id="comparison"></native-comparison>
+            </section>
+        </main>
+
+        <footer class="footer">
+            FreeShiftableArray — скомпилировано из
+            <a href="./solution.mjs">solution.mjs</a>
+        </footer>
+    </div>
+
+    <script type="module">
+        import { FreeShiftableArray } from './solution.mjs';
+        import { BufferView } from './components/buffer-view.mjs';
+        import './components/operation-panel.mjs';
+        import './components/native-comparison.mjs';
+        import './components/operation-log.mjs';
+
+        const bufferView = document.getElementById('buffer-view');
+        const opPanel = document.getElementById('op-panel');
+        const opLog = document.getElementById('op-log');
+        const comparison = document.getElementById('comparison');
+
+        let arr = new FreeShiftableArray(4);
+        let nativeArr = [];
+        let animating = false;
+
+        // Утилита задержки
+        const delay = (ms) => new Promise(r => setTimeout(r, ms));
+
+        // Получить задержку из панели
+        const getDelay = () => opPanel.animationDelay;
+
+        // Рендер текущего состояния
+        function render(highlights = []) {
+            bufferView.render(BufferView.snapshot(arr), highlights);
+        }
+
+        // Начальный рендер
+        render();
+
+        // ========== АНИМИРОВАННЫЕ ОПЕРАЦИИ ==========
+
+        async function animatedPush(value) {
+            if (animating) return;
+            animating = true;
+            opPanel.setDisabled(true);
+
+            const wasFull = arr.isFull;
+            const oldCap = arr.capacity;
+
+            // Шаг 1: Проверка на реаллокацию
+            if (wasFull) {
+                opLog.logStep(`Буфер полон (size=${arr.size}, cap=${arr.capacity}). Нужна реаллокация...`);
+                render();
+                await delay(getDelay());
+
+                // Анимация реаллокации
+                await animateExtend(oldCap);
+            }
+
+            // Шаг 2: Показать, куда будет вставлен элемент
+            const targetIdx = arr.tail;
+            opLog.logStep(`Вставка в buffer[${targetIdx}] (tail=${targetIdx})`);
+            render([{ index: targetIdx, type: 'insert' }]);
+            await delay(getDelay());
+
+            // Шаг 3: Выполнить push
+            const result = arr.push(value);
+            opLog.logPush(value, result);
+            render([{ index: (arr.tail - 1 + arr.capacity) % arr.capacity, type: 'insert' }]);
+            await delay(getDelay());
+
+            // Шаг 4: Финальное состояние
+            render();
+
+            // Сравнение с нативным
+            compareOperation('push', value);
+
+            animating = false;
+            opPanel.setDisabled(false);
+            opPanel.showResult(`push(${value}) → size = ${result}`, 'success');
+        }
+
+        async function animatedPop() {
+            if (animating) return;
+            animating = true;
+            opPanel.setDisabled(true);
+
+            if (arr.isEmpty) {
+                opLog.logPop(undefined);
+                opPanel.showResult('pop() → undefined (массив пуст)', 'error');
+                animating = false;
+                opPanel.setDisabled(false);
+                return;
+            }
+
+            // Шаг 1: Показать, какой элемент будет удалён
+            const targetIdx = (arr.tail - 1 + arr.capacity) % arr.capacity;
+            const value = arr.buffer[targetIdx];
+            opLog.logStep(`Удаление из buffer[${targetIdx}] (tail-1), значение = ${value}`);
+            render([{ index: targetIdx, type: 'remove' }]);
+            await delay(getDelay());
+
+            // Шаг 2: Выполнить pop
+            const result = arr.pop();
+            opLog.logPop(result);
+            render([{ index: targetIdx, type: 'remove' }]);
+            await delay(getDelay());
+
+            // Шаг 3: Финальное состояние
+            render();
+
+            compareOperation('pop');
+
+            animating = false;
+            opPanel.setDisabled(false);
+            opPanel.showResult(`pop() → ${result}`, 'success');
+        }
+
+        async function animatedUnshift(value) {
+            if (animating) return;
+            animating = true;
+            opPanel.setDisabled(true);
+
+            const wasFull = arr.isFull;
+            const oldCap = arr.capacity;
+
+            // Шаг 1: Проверка на реаллокацию
+            if (wasFull) {
+                opLog.logStep(`Буфер полон (size=${arr.size}, cap=${arr.capacity}). Нужна реаллокация...`);
+                render();
+                await delay(getDelay());
+
+                await animateExtend(oldCap);
+            }
+
+            // Шаг 2: Показать новую позицию head
+            const newHead = (arr.head - 1 + arr.capacity) % arr.capacity;
+            opLog.logStep(`Сдвиг head: ${arr.head} → ${newHead}. Вставка в buffer[${newHead}]`);
+            render([{ index: newHead, type: 'insert' }]);
+            await delay(getDelay());
+
+            // Шаг 3: Выполнить unshift
+            const result = arr.unshift(value);
+            opLog.logUnshift(value, result);
+            render([{ index: arr.head, type: 'insert' }]);
+            await delay(getDelay());
+
+            // Шаг 4: Финальное состояние
+            render();
+
+            compareOperation('unshift', value);
+
+            animating = false;
+            opPanel.setDisabled(false);
+            opPanel.showResult(`unshift(${value}) → size = ${result}`, 'success');
+        }
+
+        async function animatedShift() {
+            if (animating) return;
+            animating = true;
+            opPanel.setDisabled(true);
+
+            if (arr.isEmpty) {
+                opLog.logShift(undefined);
+                opPanel.showResult('shift() → undefined (массив пуст)', 'error');
+                animating = false;
+                opPanel.setDisabled(false);
+                return;
+            }
+
+            // Шаг 1: Показать, какой элемент будет удалён
+            const targetIdx = arr.head;
+            const value = arr.buffer[targetIdx];
+            opLog.logStep(`Удаление из buffer[${targetIdx}] (head), значение = ${value}`);
+            render([{ index: targetIdx, type: 'remove' }]);
+            await delay(getDelay());
+
+            // Шаг 2: Выполнить shift
+            const result = arr.shift();
+            opLog.logShift(result);
+
+            opLog.logStep(`Сдвиг head: ${(targetIdx)} → ${arr.head}. Элементы НЕ перемещаются!`);
+            render([{ index: targetIdx, type: 'remove' }]);
+            await delay(getDelay());
+
+            // Шаг 3: Финальное состояние
+            render();
+
+            compareOperation('shift');
+
+            animating = false;
+            opPanel.setDisabled(false);
+            opPanel.showResult(`shift() → ${result}`, 'success');
+        }
+
+        async function animatedAt(index) {
+            if (animating) return;
+            animating = true;
+            opPanel.setDisabled(true);
+
+            // Шаг 1: Вычислить физический индекс
+            const physIdx = (arr.head + index) % arr.capacity;
+            opLog.logStep(`at(${index}): физический индекс = (head + ${index}) % cap = (${arr.head} + ${index}) % ${arr.capacity} = ${physIdx}`);
+            render([{ index: physIdx, type: 'insert' }]);
+            await delay(getDelay());
+
+            // Шаг 2: Получить значение
+            const result = arr.at(index);
+            opLog.logAt(index, result);
+            render();
+
+            animating = false;
+            opPanel.setDisabled(false);
+            opPanel.showResult(`at(${index}) → ${result === undefined ? 'undefined' : result}`, 'info');
+        }
+
+        // ========== АНИМАЦИЯ РЕАЛЛОКАЦИИ ==========
+
+        async function animateExtend(oldCap) {
+            const newCap = oldCap * 2;
+            opLog.logExtend(oldCap, newCap);
+
+            // Подсветить все текущие элементы
+            const highlights = [];
+            for (let i = 0; i < arr.capacity; i++) {
+                if (arr.buffer[i] !== undefined) {
+                    highlights.push({ index: i, type: 'move' });
+                }
+            }
+            render(highlights);
+            opLog.logStep(`Копирование ${arr.size} элементов в новый буфер размером ${newCap}...`);
+            await delay(getDelay());
+
+            // Выполнить extend
+            arr.extend();
+
+            // Показать новый буфер с подсветкой скопированных элементов
+            const newHighlights = [];
+            for (let i = 0; i < oldCap; i++) {
+                if (arr.buffer[i] !== undefined) {
+                    newHighlights.push({ index: i, type: 'realloc' });
+                }
+            }
+            render(newHighlights);
+            opLog.logStep(`Реаллокация завершена. head=0, tail=${arr.tail}, capacity=${arr.capacity}`);
+            await delay(getDelay());
+        }
+
+        // ========== СРАВНЕНИЕ С НАТИВНЫМ МАССИВОМ ==========
+
+        function compareOperation(operation, value) {
+            const customArr = [];
+            for (const v of arr) {
+                customArr.push(v);
+            }
+
+            let nativeTime, customTime;
+            let nativeSteps = [];
+            let nativeComplexity = 'O(1)';
+
+            // Замер FreeShiftableArray (уже выполнено)
+            customTime = 0.001; // символическое, т.к. уже выполнено
+
+            // Замер нативного массива
+            const nativeCopy = [...nativeArr];
+            const start = performance.now();
+
+            switch (operation) {
+                case 'push':
+                    nativeArr.push(value);
+                    nativeComplexity = 'O(1)';
+                    nativeSteps.push({ type: 'set', action: 'SET', detail: `arr[${nativeArr.length - 1}] = ${value}` });
+                    break;
+
+                case 'pop':
+                    nativeArr.pop();
+                    nativeComplexity = 'O(1)';
+                    nativeSteps.push({ type: 'set', action: 'DEL', detail: `удалён последний элемент` });
+                    break;
+
+                case 'unshift':
+                    // Симулируем шаги сдвига
+                    for (let i = nativeCopy.length; i > 0; i--) {
+                        nativeSteps.push({
+                            type: 'move',
+                            action: 'MOVE',
+                            detail: `arr[${i}] = arr[${i - 1}] (= ${nativeCopy[i - 1]})`
+                        });
+                    }
+                    nativeSteps.push({ type: 'set', action: 'SET', detail: `arr[0] = ${value}` });
+                    nativeArr.unshift(value);
+                    nativeComplexity = `O(n) — ${nativeCopy.length} сдвигов`;
+                    break;
+
+                case 'shift':
+                    if (nativeCopy.length > 0) {
+                        for (let i = 0; i < nativeCopy.length - 1; i++) {
+                            nativeSteps.push({
+                                type: 'move',
+                                action: 'MOVE',
+                                detail: `arr[${i}] = arr[${i + 1}] (= ${nativeCopy[i + 1]})`
+                            });
+                        }
+                        nativeSteps.push({ type: 'set', action: 'DEL', detail: `length-- (удалён последний слот)` });
+                    }
+                    nativeArr.shift();
+                    nativeComplexity = `O(n) — ${Math.max(0, nativeCopy.length - 1)} сдвигов`;
+                    break;
+            }
+
+            nativeTime = performance.now() - start;
+
+            comparison.showComparison({
+                operation,
+                customResult: {
+                    value: null,
+                    array: customArr,
+                    time: customTime,
+                },
+                nativeResult: {
+                    value: null,
+                    array: [...nativeArr],
+                    time: nativeTime,
+                    steps: nativeSteps,
+                    complexity: nativeComplexity,
+                }
+            });
+        }
+
+        // ========== ОБРАБОТЧИКИ СОБЫТИЙ ==========
+
+        document.addEventListener('op-push', (e) => {
+            animatedPush(e.detail.value);
+        });
+
+        document.addEventListener('op-pop', () => {
+            animatedPop();
+        });
+
+        document.addEventListener('op-unshift', (e) => {
+            animatedUnshift(e.detail.value);
+        });
+
+        document.addEventListener('op-shift', () => {
+            animatedShift();
+        });
+
+        document.addEventListener('op-at', (e) => {
+            animatedAt(e.detail.index);
+        });
+
+        document.addEventListener('op-reset', () => {
+            arr = new FreeShiftableArray(4);
+            nativeArr = [];
+            opLog.clear();
+            comparison.reset();
+            render();
+            opPanel.showResult('Сброс выполнен', '');
+        });
+    </script>
+</body>
+</html>
